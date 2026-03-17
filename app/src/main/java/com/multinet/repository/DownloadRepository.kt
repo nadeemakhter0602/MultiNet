@@ -1,0 +1,86 @@
+package com.multinet.repository
+
+import android.content.Context
+import android.os.Environment
+import com.multinet.database.DownloadDao
+import com.multinet.database.DownloadEntity
+import com.multinet.database.DownloadStatus
+import com.multinet.service.DownloadService
+import kotlinx.coroutines.flow.Flow
+import java.io.File
+
+// The Repository is the single source of truth for the UI and ViewModels.
+// It owns all DB access and decides how/where to save files.
+// ViewModels should never touch the DAO directly — always go through here.
+class DownloadRepository(
+    private val dao: DownloadDao,
+    private val context: Context
+) {
+
+    // Expose the live download list as a Flow — the UI collects this
+    fun getAllDownloads(): Flow<List<DownloadEntity>> = dao.getAllDownloads()
+
+    // Add a new download to the queue and kick off the service.
+    // Returns the new DB row ID.
+    suspend fun addDownload(url: String, fileName: String): Long {
+        val filePath = buildFilePath(fileName)
+        val entity = DownloadEntity(
+            url      = url,
+            filePath = filePath,
+            fileName = fileName,
+            status   = DownloadStatus.QUEUED
+        )
+        val id = dao.insert(entity)
+
+        // Start the download immediately
+        context.startService(DownloadService.startIntent(context, id))
+        return id
+    }
+
+    suspend fun pauseDownload(id: Long) {
+        context.startService(DownloadService.pauseIntent(context, id))
+    }
+
+    suspend fun resumeDownload(id: Long) {
+        context.startService(DownloadService.resumeIntent(context, id))
+    }
+
+    suspend fun cancelDownload(id: Long) {
+        context.startService(DownloadService.cancelIntent(context, id))
+        // Delete the partial file from disk
+        val download = dao.getById(id)
+        download?.filePath?.let { File(it).delete() }
+        dao.delete(id)
+    }
+
+    suspend fun deleteDownload(id: Long) {
+        val download = dao.getById(id) ?: return
+        // Only delete file if download didn't complete (completed file is user's)
+        if (download.status != DownloadStatus.COMPLETED) {
+            File(download.filePath).delete()
+        }
+        dao.delete(id)
+    }
+
+    // Builds the full path: public Downloads folder / fileName
+    // Appends (1), (2) etc. if the file already exists
+    private fun buildFilePath(fileName: String): String {
+        val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        dir.mkdirs()
+
+        var file = File(dir, fileName)
+        if (!file.exists()) return file.absolutePath
+
+        // Split "video.mp4" into ("video", ".mp4") and try "video (1).mp4", etc.
+        val dot = fileName.lastIndexOf('.')
+        val name = if (dot >= 0) fileName.substring(0, dot) else fileName
+        val ext  = if (dot >= 0) fileName.substring(dot)    else ""
+
+        var counter = 1
+        while (file.exists()) {
+            file = File(dir, "$name ($counter)$ext")
+            counter++
+        }
+        return file.absolutePath
+    }
+}
