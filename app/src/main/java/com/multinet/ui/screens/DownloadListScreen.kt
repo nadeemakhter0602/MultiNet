@@ -102,14 +102,27 @@ private fun DownloadCard(
 
             Spacer(Modifier.height(8.dp))
 
-            // Progress bar (only shown when size is known)
-            if (item.progress != null) {
-                LinearProgressIndicator(
-                    progress = { item.progress },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            } else if (item.status == DownloadStatus.DOWNLOADING) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())  // indeterminate
+            // Progress bar
+            when {
+                // Multi-connection: show segmented bar with per-chunk progress
+                item.chunks.isNotEmpty() && item.totalBytes > 0 -> {
+                    ChunkedProgressBar(
+                        chunks     = item.chunks,
+                        totalBytes = item.totalBytes,
+                        height     = 12.dp
+                    )
+                }
+                // Single connection with known size: plain progress bar
+                item.progress != null -> {
+                    LinearProgressIndicator(
+                        progress = { item.progress },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                // Downloading but size unknown: indeterminate
+                item.status == DownloadStatus.DOWNLOADING -> {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
             }
 
             Spacer(Modifier.height(4.dp))

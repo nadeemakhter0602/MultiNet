@@ -2,23 +2,51 @@ package com.multinet.repository
 
 import android.content.Context
 import android.os.Environment
+import com.multinet.database.ChunkDao
+import com.multinet.database.ChunkEntity
 import com.multinet.database.DownloadDao
 import com.multinet.database.DownloadEntity
 import com.multinet.database.DownloadStatus
 import com.multinet.service.DownloadService
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import java.io.File
 
 // The Repository is the single source of truth for the UI and ViewModels.
 // It owns all DB access and decides how/where to save files.
 // ViewModels should never touch the DAO directly — always go through here.
+// Pairs a download with its chunk list (empty if single-connection)
+data class DownloadWithChunks(
+    val download: DownloadEntity,
+    val chunks: List<ChunkEntity>
+)
+
 class DownloadRepository(
     private val dao: DownloadDao,
+    private val chunkDao: ChunkDao,
     private val context: Context
 ) {
 
-    // Expose the live download list as a Flow — the UI collects this
-    fun getAllDownloads(): Flow<List<DownloadEntity>> = dao.getAllDownloads()
+    // Combines the download list with live chunk data for each download.
+    // flatMapLatest: whenever the download list changes, rebuild the combined flow.
+    // combine: whenever ANY chunk updates, the whole list re-emits.
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun getAllDownloads(): Flow<List<DownloadWithChunks>> =
+        dao.getAllDownloads().flatMapLatest { downloads ->
+            if (downloads.isEmpty()) return@flatMapLatest flowOf(emptyList())
+
+            // Build one Flow<List<ChunkEntity>> per download, then combine them all
+            val chunkFlows = downloads.map { chunkDao.observeChunksFor(it.id) }
+
+            combine(chunkFlows) { chunkArrays ->
+                downloads.mapIndexed { i, download ->
+                    DownloadWithChunks(download, chunkArrays[i])
+                }
+            }
+        }
 
     // Add a new download to the queue and kick off the service.
     // Returns the new DB row ID.
