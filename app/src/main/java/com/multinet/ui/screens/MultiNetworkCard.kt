@@ -113,6 +113,15 @@ fun MultiNetworkCard(
                 }
             }
 
+            // Elapsed time
+            if (item.activeMs > 0) {
+                Text(
+                    text  = "Elapsed: ${item.elapsedFormatted}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                )
+            }
+
             // Error message
             if (item.status == DownloadStatus.FAILED && item.errorMessage != null) {
                 Spacer(Modifier.height(4.dp))

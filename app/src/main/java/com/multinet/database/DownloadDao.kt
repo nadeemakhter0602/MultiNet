@@ -39,6 +39,9 @@ interface DownloadDao {
     @Query("UPDATE downloads SET totalBytes = :total, supportsResume = :supportsResume WHERE id = :id")
     suspend fun updateMeta(id: Long, total: Long, supportsResume: Boolean)
 
+    @Query("UPDATE downloads SET activeMs = :ms WHERE id = :id")
+    suspend fun updateActiveMs(id: Long, ms: Long)
+
     @Query("DELETE FROM downloads WHERE id = :id")
     suspend fun delete(id: Long)
 }

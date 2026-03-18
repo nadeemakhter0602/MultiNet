@@ -213,7 +213,9 @@ class DownloadService : Service() {
                     Pair(download.totalBytes, download.supportsResume)
                 }
 
-                val resumeFrom = if (supportsResume) download.downloadedBytes else 0L
+                val resumeFrom   = if (supportsResume) download.downloadedBytes else 0L
+                val sessionStart = System.currentTimeMillis()
+                val existingMs   = download.activeMs
 
                 engine.download(
                     id             = id,
@@ -226,7 +228,9 @@ class DownloadService : Service() {
                     stableIds      = stableIds,
                     displayNames   = displayNames
                 ) { downloaded, totalBytes, speedBps ->
+                    val activeMs = existingMs + (System.currentTimeMillis() - sessionStart)
                     dao.updateProgress(id, downloaded, speedBps)
+                    dao.updateActiveMs(id, activeMs)
                     updateNotification(download.fileName, downloaded, totalBytes, speedBps)
                 }
 

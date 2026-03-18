@@ -41,5 +41,8 @@ data class DownloadEntity(
 
     // Comma-separated stable network IDs chosen by the user (empty = default)
     // e.g. "WIFI,CELLULAR_0"
-    val selectedNetworkIds: String = ""
+    val selectedNetworkIds: String = "",
+
+    // Accumulated active download time in milliseconds (pausing stops the clock)
+    val activeMs: Long = 0L
 )

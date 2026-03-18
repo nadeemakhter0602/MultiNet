@@ -13,8 +13,8 @@ android {
         applicationId = "com.multinet"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.0.5"
+        versionCode = 7
+        versionName = "1.0.6"
     }
 
     signingConfigs {
@@ -32,6 +32,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix   = "-debug"
+        }
         release {
             isMinifyEnabled = true
             signingConfig   = signingConfigs.getByName("release")

@@ -49,9 +49,19 @@ data class DownloadUiState(
     val speedBps: Long,
     val chunks: List<ChunkUiState>,
     val networkProgress: List<NetworkProgressState>,
-    val isMultiNetwork: Boolean
+    val isMultiNetwork: Boolean,
+    val activeMs: Long
 ) {
     val progressPercent: Int get() = ((progress ?: 0f) * 100).toInt()
+
+    val elapsedFormatted: String get() {
+        val totalSecs = activeMs / 1000
+        val h = totalSecs / 3600
+        val m = (totalSecs % 3600) / 60
+        val s = totalSecs % 60
+        return if (h > 0) "%d:%02d:%02d".format(h, m, s)
+               else       "%d:%02d".format(m, s)
+    }
 }
 
 // Carries chunk byte snapshots between Flow emissions for speed calculation
@@ -170,7 +180,8 @@ private fun DownloadWithChunks.toUiState(chunkSpeeds: Map<Long, Long>): Download
         speedBps        = download.speedBps,
         chunks          = chunkUiStates,
         networkProgress = networkProgress,
-        isMultiNetwork  = isMultiNetwork
+        isMultiNetwork  = isMultiNetwork,
+        activeMs        = download.activeMs
     )
 }
 
