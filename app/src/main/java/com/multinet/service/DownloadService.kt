@@ -241,6 +241,16 @@ class DownloadService : Service() {
                 // Note: rebalanceDownload already unregisters the callback before cancelling
 
             } catch (e: Exception) {
+                if (e.message?.contains("EPERM") == true ||
+                    e.message?.contains("Operation not permitted") == true) {
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        android.widget.Toast.makeText(
+                            this@DownloadService,
+                            "Multi-network unavailable — is VPN active?",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
                 dao.updateStatus(id, DownloadStatus.FAILED, e.message)
                 activeJobs.remove(id)
                 unregisterRebalanceCallback(id)
