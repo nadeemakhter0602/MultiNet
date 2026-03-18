@@ -10,6 +10,14 @@ class NetworkMonitor(context: Context) {
 
     private val cm = context.getSystemService(ConnectivityManager::class.java)
 
+    fun isVpnActive(): Boolean {
+        @Suppress("DEPRECATION")
+        return cm.allNetworks.any { network ->
+            cm.getNetworkCapabilities(network)
+                ?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+        }
+    }
+
     fun scan(): List<NetworkInfo> {
         var cellularCount = 0
         val result = mutableListOf<NetworkInfo>()
