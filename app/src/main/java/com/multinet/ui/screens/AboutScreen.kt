@@ -21,7 +21,7 @@ import com.multinet.update.UpdateInfo
 import com.multinet.update.UpdateService
 import kotlinx.coroutines.launch
 
-private const val CURRENT_VERSION = "1.0.4"
+private const val CURRENT_VERSION = "1.0.5"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

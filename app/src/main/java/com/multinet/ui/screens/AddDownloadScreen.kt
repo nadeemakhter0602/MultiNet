@@ -13,7 +13,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.multinet.network.NetworkInfo
-import com.multinet.network.NetworkMonitor
 import com.multinet.network.toShortStableId
 import com.multinet.viewmodel.DownloadViewModel
 
@@ -163,14 +162,6 @@ fun AddDownloadScreen(
 
             Button(
                 onClick = {
-                    if (networkMode == NetworkMode.MULTIPLE && NetworkMonitor(context).isVpnActive()) {
-                        android.widget.Toast.makeText(
-                            context,
-                            "Multi-network mode unavailable while VPN is active — VPN routes all traffic through a single tunnel",
-                            android.widget.Toast.LENGTH_LONG
-                        ).show()
-                        return@Button
-                    }
                     if (multiNetworkError) {
                         android.widget.Toast.makeText(
                             context,
