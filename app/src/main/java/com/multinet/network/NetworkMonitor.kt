@@ -20,6 +20,10 @@ class NetworkMonitor(context: Context) {
 
             val isMetered = !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
 
+            // Skip VPN networks entirely — VPN intercepts all traffic regardless
+            // of socket binding, so multi-network mode doesn't work with VPN active
+            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) return@forEach
+
             val info = when {
                 // WiFi: require internet capability
                 caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
