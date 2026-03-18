@@ -157,8 +157,19 @@ fun AddDownloadScreen(
 
             Spacer(Modifier.height(8.dp))
 
+            val multiNetworkError = networkMode == NetworkMode.MULTIPLE && selectedIds.size < 2
+            val context = androidx.compose.ui.platform.LocalContext.current
+
             Button(
                 onClick = {
+                    if (multiNetworkError) {
+                        android.widget.Toast.makeText(
+                            context,
+                            "Select at least 2 networks, or use Default mode for single network",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                        return@Button
+                    }
                     if (url.isBlank() || (!url.startsWith("http://") && !url.startsWith("https://"))) {
                         urlError = true
                         return@Button
