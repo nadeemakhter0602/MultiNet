@@ -50,7 +50,8 @@ fun DefaultDownloadCard(
                     ChunkedProgressBar(
                         chunks     = item.chunks,
                         totalBytes = item.totalBytes,
-                        height     = 12.dp
+                        height     = 12.dp,
+                        modifier   = Modifier.fillMaxWidth()
                     )
                 }
                 item.progress != null -> {

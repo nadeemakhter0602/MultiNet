@@ -6,25 +6,25 @@ import com.multinet.database.DownloadDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import okhttp3.Request
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import okhttp3.Request
 
 const val BUFFER_SIZE = 8 * 1024
 const val CONNECTIONS = 4
 
-// Coordinator — probes the server, then delegates to the right engine
-// based on the user's network selection (Default vs Multiple).
+// Thin coordinator — probes the server and delegates to the right engine:
+//   networks.isEmpty() → DefaultNetworkEngine
+//   networks.isNotEmpty() → MultiNetworkEngine
 class DownloadEngine(
     private val dao: DownloadDao,
     private val chunkDao: ChunkDao
 ) {
     private val defaultEngine = DefaultNetworkEngine(chunkDao)
-    // MultiNetworkEngine will be added here
+    private val multiEngine   = MultiNetworkEngine(chunkDao)
 
     suspend fun probe(url: String): Pair<Long, Boolean> = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url).head().build()
-        // suspendCancellableCoroutine ensures the call is cancelled immediately if the coroutine is cancelled
         suspendCancellableCoroutine { continuation ->
             val call = defaultEngine.client.newCall(request)
             continuation.invokeOnCancellation { call.cancel() }
@@ -47,16 +47,15 @@ class DownloadEngine(
         resumeFrom: Long,
         totalBytes: Long,
         supportsResume: Boolean,
-        networks: List<Network> = emptyList(),   // empty = Default, non-empty = Multiple
+        networks: List<Network> = emptyList(),
         stableIds: List<String> = emptyList(),
+        displayNames: List<String> = emptyList(),
         onProgress: suspend (downloaded: Long, total: Long, speedBps: Long) -> Unit
     ) {
         if (networks.isEmpty()) {
             defaultEngine.download(id, url, filePath, resumeFrom, totalBytes, supportsResume, onProgress)
         } else {
-            // TODO: multiNetworkEngine.download(...)
-            // For now fall back to default until MultiNetworkEngine is built
-            defaultEngine.download(id, url, filePath, resumeFrom, totalBytes, supportsResume, onProgress)
+            multiEngine.download(id, url, filePath, totalBytes, networks, stableIds, displayNames, onProgress)
         }
     }
 }

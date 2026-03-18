@@ -37,5 +37,9 @@ data class DownloadEntity(
     val errorMessage: String? = null,
 
     // Current download speed in bytes/sec (0 when not actively downloading)
-    val speedBps: Long = 0L
+    val speedBps: Long = 0L,
+
+    // Comma-separated stable network IDs chosen by the user (empty = default)
+    // e.g. "WIFI,CELLULAR_0"
+    val selectedNetworkIds: String = ""
 )

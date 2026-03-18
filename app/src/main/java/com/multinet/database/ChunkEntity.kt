@@ -39,5 +39,11 @@ data class ChunkEntity(
     // How many bytes of this chunk are already on disk (for resume)
     val downloadedBytes: Long = 0L,
 
-    val status: ChunkStatus = ChunkStatus.PENDING
+    val status: ChunkStatus = ChunkStatus.PENDING,
+
+    // Stable key for network matching on resume e.g. "WIFI", "CELLULAR_0"
+    val networkStableId: String = "",
+
+    // Human-readable label from NetworkMonitor e.g. "Wi-Fi", "Mobile Data · SIM 2"
+    val networkDisplayName: String = ""
 )

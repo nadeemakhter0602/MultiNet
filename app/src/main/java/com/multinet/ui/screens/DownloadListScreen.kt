@@ -54,15 +54,23 @@ fun DownloadListScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(downloads, key = { it.id }) { download ->
-                    // Route to the appropriate card based on download type.
-                    // MultiNetworkCard will be added here once built.
-                    DefaultDownloadCard(
-                        item     = download,
-                        onPause  = { viewModel.pause(download.id) },
-                        onResume = { viewModel.resume(download.id) },
-                        onCancel = { viewModel.cancel(download.id) },
-                        onDelete = { viewModel.delete(download.id) }
-                    )
+                    if (download.isMultiNetwork) {
+                        MultiNetworkCard(
+                            item     = download,
+                            onPause  = { viewModel.pause(download.id) },
+                            onResume = { viewModel.resume(download.id) },
+                            onCancel = { viewModel.cancel(download.id) },
+                            onDelete = { viewModel.delete(download.id) }
+                        )
+                    } else {
+                        DefaultDownloadCard(
+                            item     = download,
+                            onPause  = { viewModel.pause(download.id) },
+                            onResume = { viewModel.resume(download.id) },
+                            onCancel = { viewModel.cancel(download.id) },
+                            onDelete = { viewModel.delete(download.id) }
+                        )
+                    }
                 }
             }
         }

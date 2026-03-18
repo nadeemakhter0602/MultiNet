@@ -19,6 +19,12 @@ interface ChunkDao {
     @Query("UPDATE chunks SET downloadedBytes = :bytes, status = :status WHERE id = :id")
     suspend fun updateProgress(id: Long, bytes: Long, status: ChunkStatus)
 
+    @Query("UPDATE chunks SET networkStableId = :stableId, networkDisplayName = :displayName WHERE id = :id")
+    suspend fun updateNetwork(id: Long, stableId: String, displayName: String = "")
+
+    @Query("SELECT * FROM chunks WHERE id = :id")
+    suspend fun getById(id: Long): ChunkEntity?
+
     @Query("DELETE FROM chunks WHERE downloadId = :downloadId")
     suspend fun deleteFor(downloadId: Long)
 }

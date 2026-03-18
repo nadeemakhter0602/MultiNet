@@ -3,6 +3,7 @@ package com.multinet.network
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.util.Log
 
 // Simple one-shot network scanner. Call scan() to get currently available networks.
 class NetworkMonitor(context: Context) {
@@ -13,26 +14,30 @@ class NetworkMonitor(context: Context) {
         var cellularCount = 0
         val result = mutableListOf<NetworkInfo>()
 
+        @Suppress("DEPRECATION")
         cm.allNetworks.forEach { network ->
             val caps = cm.getNetworkCapabilities(network) ?: return@forEach
-            if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return@forEach
 
             val isMetered = !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
 
             val info = when {
-                caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> NetworkInfo(
+                // WiFi: require internet capability
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
+                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) -> NetworkInfo(
                     network     = network,
                     displayName = "Wi-Fi",
                     stableId    = "WIFI",
                     isMetered   = isMetered
                 )
-                caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> NetworkInfo(
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) &&
+                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED) -> NetworkInfo(
                     network     = network,
                     displayName = if (cellularCount == 0) "Mobile Data" else "Mobile Data · SIM ${cellularCount + 1}",
                     stableId    = "CELLULAR_$cellularCount",
                     isMetered   = isMetered
                 ).also { cellularCount++ }
-                caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> NetworkInfo(
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) &&
+                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) -> NetworkInfo(
                     network     = network,
                     displayName = "Ethernet",
                     stableId    = "ETHERNET",
@@ -44,6 +49,8 @@ class NetworkMonitor(context: Context) {
             result.add(info)
         }
 
-        return result.sortedBy { it.stableId }
+        val sorted = result.sortedBy { it.stableId }
+        Log.d("MultiNet.Scan", "scan() found ${sorted.size} networks: ${sorted.map { it.stableId }}")
+        return sorted
     }
 }

@@ -13,6 +13,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.multinet.network.NetworkInfo
+import com.multinet.network.toShortStableId
 import com.multinet.viewmodel.DownloadViewModel
 
 private enum class NetworkMode { DEFAULT, MULTIPLE }
@@ -165,7 +166,10 @@ fun AddDownloadScreen(
                     val name = fileName.ifBlank {
                         url.trimEnd('/').substringAfterLast('/').ifEmpty { "download" }
                     }
-                    viewModel.addDownload(url, name)
+                    val selectedNetworks = if (networkMode == NetworkMode.MULTIPLE) {
+                        availableNetworks.filter { it.stableId in selectedIds }
+                    } else emptyList()
+                    viewModel.addDownload(url, name, selectedNetworks)
                     onBack()
                 },
                 modifier = Modifier.fillMaxWidth()
@@ -191,7 +195,7 @@ private fun NetworkRow(
         Checkbox(checked = checked, onCheckedChange = onChecked)
         Spacer(Modifier.width(8.dp))
         Column {
-            Text(network.displayName, style = MaterialTheme.typography.bodyMedium)
+            Text(network.stableId, style = MaterialTheme.typography.bodyMedium)
             if (network.isMetered) {
                 Text(
                     "Metered",

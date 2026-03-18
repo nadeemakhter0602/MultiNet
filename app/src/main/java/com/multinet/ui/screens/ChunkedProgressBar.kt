@@ -31,9 +31,7 @@ fun ChunkedProgressBar(
     val dividerColor  = MaterialTheme.colorScheme.background
 
     Canvas(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(height)
+        modifier = modifier.height(height)
     ) {
         val barWidth  = size.width
         val barHeight = size.height

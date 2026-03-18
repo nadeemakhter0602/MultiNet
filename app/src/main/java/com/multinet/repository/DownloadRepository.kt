@@ -7,6 +7,7 @@ import com.multinet.database.ChunkEntity
 import com.multinet.database.DownloadDao
 import com.multinet.database.DownloadEntity
 import com.multinet.database.DownloadStatus
+import com.multinet.network.NetworkInfo
 import com.multinet.service.DownloadService
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -50,18 +51,22 @@ class DownloadRepository(
 
     // Add a new download to the queue and kick off the service.
     // Returns the new DB row ID.
-    suspend fun addDownload(url: String, fileName: String): Long {
-        val filePath = buildFilePath(fileName)
+    suspend fun addDownload(
+        url: String,
+        fileName: String,
+        selectedNetworks: List<NetworkInfo> = emptyList()
+    ): Long {
+        val filePath   = buildFilePath(fileName)
+        val networkIds = selectedNetworks.joinToString(",") { it.stableId }
         val entity = DownloadEntity(
-            url      = url,
-            filePath = filePath,
-            fileName = fileName,
-            status   = DownloadStatus.QUEUED
+            url                = url,
+            filePath           = filePath,
+            fileName           = fileName,
+            status             = DownloadStatus.QUEUED,
+            selectedNetworkIds = networkIds
         )
         val id = dao.insert(entity)
-
-        // Start the download immediately
-        context.startService(DownloadService.startIntent(context, id))
+        context.startService(DownloadService.startIntent(context, id, selectedNetworks))
         return id
     }
 
@@ -70,7 +75,15 @@ class DownloadRepository(
     }
 
     suspend fun resumeDownload(id: Long) {
-        context.startService(DownloadService.resumeIntent(context, id))
+        val download = dao.getById(id) ?: return
+        if (download.selectedNetworkIds.isNotEmpty()) {
+            // Multi-network mode — pass stored stable IDs so the service can resolve live networks
+            val stableIds = download.selectedNetworkIds.split(",")
+            context.startService(DownloadService.multiResumeIntent(context, id, stableIds))
+        } else {
+            // Default mode
+            context.startService(DownloadService.resumeIntent(context, id))
+        }
     }
 
     suspend fun cancelDownload(id: Long) {
