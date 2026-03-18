@@ -26,7 +26,17 @@ fun MultiNetworkCard(
     onCancel: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    val borderColor = when (item.status) {
+        DownloadStatus.DOWNLOADING -> MaterialTheme.colorScheme.primary
+        DownloadStatus.COMPLETED   -> MaterialTheme.colorScheme.secondary
+        DownloadStatus.FAILED      -> MaterialTheme.colorScheme.error
+        DownloadStatus.PAUSED      -> MaterialTheme.colorScheme.tertiary
+        DownloadStatus.QUEUED      -> MaterialTheme.colorScheme.outline
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        border   = androidx.compose.foundation.BorderStroke(1.5.dp, borderColor.copy(alpha = 0.6f))
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
             // File name + status chip
