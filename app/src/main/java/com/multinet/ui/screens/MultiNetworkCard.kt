@@ -49,10 +49,8 @@ fun MultiNetworkCard(
             Spacer(Modifier.height(10.dp))
 
             if (item.chunks.isNotEmpty() && item.totalBytes > 0) {
-                // Labels row — one label per chunk, proportional to chunk byte range
                 ChunkLabelsRow(item.chunks, item.totalBytes)
                 Spacer(Modifier.height(2.dp))
-                // Total segmented bar
                 ChunkedProgressBar(
                     chunks     = item.chunks,
                     totalBytes = item.totalBytes,
@@ -67,30 +65,41 @@ fun MultiNetworkCard(
 
             Spacer(Modifier.height(8.dp))
 
-            // Per-network summary rows
-            if (item.networkProgress.isNotEmpty()) {
+            if (item.networkProgress.size > 1) {
+                // 2+ networks: per-network rows + total row
                 item.networkProgress.forEach { net ->
                     NetworkSummaryRow(net, item.status)
                 }
                 HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
-            }
-
-            // Total stats row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    buildSizeText(item.downloadedBytes, item.totalBytes, item.progressPercent),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                )
-                if (item.status == DownloadStatus.DOWNLOADING && item.speedBps > 0) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                     Text(
-                        item.speedBps.toDisplaySpeed(),
+                        buildSizeText(item.downloadedBytes, item.totalBytes, item.progressPercent),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
+                    if (item.status == DownloadStatus.DOWNLOADING && item.speedBps > 0) {
+                        Text(item.speedBps.toDisplaySpeed(), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            } else {
+                // 1 network: just size + speed under the bar
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        buildSizeText(item.downloadedBytes, item.totalBytes, item.progressPercent),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                    if (item.status == DownloadStatus.DOWNLOADING && item.speedBps > 0) {
+                        Text(item.speedBps.toDisplaySpeed(), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
 
