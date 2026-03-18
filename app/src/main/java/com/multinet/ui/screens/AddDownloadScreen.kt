@@ -11,6 +11,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.multinet.viewmodel.DownloadViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -18,11 +19,16 @@ fun AddDownloadScreen(
     viewModel: DownloadViewModel,
     onBack: () -> Unit
 ) {
-    var url      by remember { mutableStateOf("") }
-    var fileName by remember { mutableStateOf("") }
-    var urlError by remember { mutableStateOf(false) }
+    var url              by remember { mutableStateOf("") }
+    var fileName         by remember { mutableStateOf("") }
+    var urlError         by remember { mutableStateOf(false) }
+    var dropdownExpanded by remember { mutableStateOf(false) }
+
+    val snackbarHost = remember { SnackbarHostState() }
+    val scope        = rememberCoroutineScope()
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHost) },
         topBar = {
             TopAppBar(
                 title = { Text("New Download") },
@@ -41,39 +47,64 @@ fun AddDownloadScreen(
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // URL field
             OutlinedTextField(
-                value         = url,
-                onValueChange = { url = it; urlError = false },
-                label         = { Text("URL") },
-                placeholder   = { Text("https://example.com/file.zip") },
-                isError       = urlError,
-                supportingText = if (urlError) {{ Text("Please enter a valid URL") }} else null,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Uri,
-                    imeAction    = ImeAction.Next
-                ),
-                singleLine    = true,
-                modifier      = Modifier.fillMaxWidth()
+                value           = url,
+                onValueChange   = { url = it; urlError = false },
+                label           = { Text("URL") },
+                placeholder     = { Text("https://example.com/file.zip") },
+                isError         = urlError,
+                supportingText  = if (urlError) {{ Text("Please enter a valid URL") }} else null,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
+                singleLine      = true,
+                modifier        = Modifier.fillMaxWidth()
             )
 
-            // File name field — auto-filled from URL, user can override
             OutlinedTextField(
-                value         = fileName,
-                onValueChange = { fileName = it },
-                label         = { Text("File name") },
-                placeholder   = { Text("e.g. video.mp4") },
+                value           = fileName,
+                onValueChange   = { fileName = it },
+                label           = { Text("File name") },
+                placeholder     = { Text("e.g. video.mp4") },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                singleLine    = true,
-                modifier      = Modifier.fillMaxWidth()
+                singleLine      = true,
+                modifier        = Modifier.fillMaxWidth()
             )
 
-            // Auto-fill file name when URL loses focus
             LaunchedEffect(url) {
                 if (fileName.isEmpty() && url.isNotEmpty()) {
-                    // Grab the last path segment of the URL as default file name
-                    fileName = url.trimEnd('/').substringAfterLast('/').substringBefore('?')
-                        .ifEmpty { "download" }
+                    fileName = url.trimEnd('/').substringAfterLast('/').substringBefore('?').ifEmpty { "download" }
+                }
+            }
+
+            // Network mode dropdown
+            ExposedDropdownMenuBox(
+                expanded         = dropdownExpanded,
+                onExpandedChange = { dropdownExpanded = it }
+            ) {
+                OutlinedTextField(
+                    value           = "Default",
+                    onValueChange   = {},
+                    readOnly        = true,
+                    label           = { Text("Network") },
+                    trailingIcon    = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) },
+                    modifier        = Modifier.fillMaxWidth().menuAnchor()
+                )
+                ExposedDropdownMenu(
+                    expanded         = dropdownExpanded,
+                    onDismissRequest = { dropdownExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text    = { Text("Default") },
+                        onClick = { dropdownExpanded = false }
+                    )
+                    DropdownMenuItem(
+                        text    = { Text("Multiple") },
+                        onClick = {
+                            dropdownExpanded = false
+                            scope.launch {
+                                snackbarHost.showSnackbar("Multi-network mode coming soon")
+                            }
+                        }
+                    )
                 }
             }
 
