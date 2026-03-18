@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.multinet.ui.screens.AboutScreen
 import com.multinet.ui.screens.AddDownloadScreen
 import com.multinet.ui.screens.DownloadListScreen
 import com.multinet.ui.theme.MultinetTheme
@@ -57,8 +58,9 @@ class MainActivity : ComponentActivity() {
 // navController.navigate("add") pushes a new screen onto the back stack.
 
 private object Routes {
-    const val LIST = "list"
-    const val ADD  = "add"
+    const val LIST  = "list"
+    const val ADD   = "add"
+    const val ABOUT = "about"
 }
 
 @Composable
@@ -69,8 +71,9 @@ private fun AppNavigation(viewModel: DownloadViewModel) {
 
         composable(Routes.LIST) {
             DownloadListScreen(
-                viewModel  = viewModel,
-                onAddClick = { navController.navigate(Routes.ADD) }
+                viewModel   = viewModel,
+                onAddClick  = { navController.navigate(Routes.ADD) },
+                onAboutClick = { navController.navigate(Routes.ABOUT) }
             )
         }
 
@@ -79,6 +82,10 @@ private fun AppNavigation(viewModel: DownloadViewModel) {
                 viewModel = viewModel,
                 onBack    = { navController.popBackStack() }
             )
+        }
+
+        composable(Routes.ABOUT) {
+            AboutScreen(onBack = { navController.popBackStack() })
         }
     }
 }

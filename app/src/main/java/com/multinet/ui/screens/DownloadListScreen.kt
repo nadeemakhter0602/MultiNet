@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -18,13 +19,21 @@ import com.multinet.viewmodel.DownloadViewModel
 @Composable
 fun DownloadListScreen(
     viewModel: DownloadViewModel,
-    onAddClick: () -> Unit
+    onAddClick: () -> Unit,
+    onAboutClick: () -> Unit
 ) {
     val downloads by viewModel.downloads.collectAsState()
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("MultiNet") })
+            TopAppBar(
+                title = { Text("MultiNet") },
+                actions = {
+                    IconButton(onClick = onAboutClick) {
+                        Icon(Icons.Default.Info, contentDescription = "About")
+                    }
+                }
+            )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = onAddClick) {
