@@ -83,7 +83,6 @@ class MultiNetworkEngine(private val chunkDao: ChunkDao) {
                         while (attempts < clientsToTry.size) {
                             val nc         = clientsToTry[clientIndex]
                             val freshChunk = chunkDao.getById(chunk.id) ?: chunk
-                            android.util.Log.d("MultiNet.Chunk", "Chunk ${chunk.index} attempt $attempts on ${nc.stableId}")
                             if (freshChunk.networkStableId != nc.stableId) {
                                 chunkDao.updateNetwork(freshChunk.id, nc.stableId, nc.displayName)
                             }
@@ -113,9 +112,7 @@ class MultiNetworkEngine(private val chunkDao: ChunkDao) {
                             } catch (e: CancellationException) {
                                 throw e
                             } catch (e: Exception) {
-                                android.util.Log.e("MultiNet.Chunk",
-                                    "Chunk ${chunk.index} failed on ${nc.stableId}: ${e::class.simpleName} - ${e.message}")
-                                attempts++
+                                    attempts++
                                 clientIndex = (clientIndex + 1) % clientsToTry.size
                                 if (attempts >= clientsToTry.size) throw e
                             }

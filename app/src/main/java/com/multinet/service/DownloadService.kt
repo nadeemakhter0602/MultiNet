@@ -78,6 +78,9 @@ class DownloadService : Service() {
     // Map of downloadId → coroutine Job, so we can cancel individual downloads
     private val activeJobs = mutableMapOf<Long, Job>()
 
+    // Network callbacks for multi-network downloads — unregistered on pause/cancel/complete
+    private val networkCallbacks = mutableMapOf<Long, android.net.ConnectivityManager.NetworkCallback>()
+
     private lateinit var dao: com.multinet.database.DownloadDao
     private lateinit var chunkDao: com.multinet.database.ChunkDao
     private lateinit var engine: DownloadEngine
@@ -103,11 +106,10 @@ class DownloadService : Service() {
             ACTION_START -> if (id != -1L) {
                 val requestedIds = intent.getStringArrayExtra(EXTRA_STABLE_IDS)?.toList() ?: emptyList()
                 val resolved     = resolveNetworks(requestedIds)
-                // Only use multi-engine if at least one requested network is live
                 val networks     = resolved.map { it.network }
                 val stableIds    = resolved.map { it.stableId }
                 val displayNames = resolved.map { it.displayName }
-                startDownload(id, networks, stableIds, displayNames)
+                startDownload(id, networks, stableIds, displayNames, selectedStableIds = requestedIds)
             }
             ACTION_RESUME -> if (id != -1L) {
                 // Default mode — no network binding
@@ -117,9 +119,9 @@ class DownloadService : Service() {
                 val requestedIds = intent.getStringArrayExtra(EXTRA_STABLE_IDS)?.toList() ?: emptyList()
                 val resolved     = resolveNetworks(requestedIds)
                 val networks     = resolved.map { it.network }
-                val stableIds    = resolved.map { it.stableId }   // only live networks
+                val stableIds    = resolved.map { it.stableId }
                 val displayNames = resolved.map { it.displayName }
-                startDownload(id, networks, stableIds, displayNames)
+                startDownload(id, networks, stableIds, displayNames, selectedStableIds = requestedIds)
             }
             ACTION_PAUSE  -> if (id != -1L) pauseDownload(id)
             ACTION_CANCEL -> if (id != -1L) cancelDownload(id)
@@ -129,13 +131,63 @@ class DownloadService : Service() {
         return START_STICKY
     }
 
+    // Registers a NetworkCallback that auto-rebalances when a new network becomes available.
+    // Only used for multi-network downloads (stableIds non-empty).
+    private fun registerRebalanceCallback(id: Long, selectedStableIds: List<String>, currentCount: Int) {
+        val cm = getSystemService(android.net.ConnectivityManager::class.java)
+        var currentAvailable = currentCount  // tracks how many selected networks are live
+
+        val callback = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: android.net.Network) {
+                val nowAvailable = resolveNetworks(selectedStableIds).size
+                if (nowAvailable > currentAvailable && activeJobs[id]?.isActive == true) {
+                    currentAvailable = nowAvailable
+                    rebalanceDownload(id, selectedStableIds)
+                } else {
+                    currentAvailable = nowAvailable
+                }
+            }
+            override fun onLost(network: android.net.Network) {
+                // Update count so onAvailable can detect when the network returns
+                currentAvailable = resolveNetworks(selectedStableIds).size
+            }
+        }
+        val request = android.net.NetworkRequest.Builder().build()
+        cm.registerNetworkCallback(request, callback)
+        networkCallbacks[id] = callback
+    }
+
+    private fun unregisterRebalanceCallback(id: Long) {
+        networkCallbacks.remove(id)?.let { callback ->
+            try {
+                getSystemService(android.net.ConnectivityManager::class.java)
+                    .unregisterNetworkCallback(callback)
+            } catch (e: Exception) { /* already unregistered */ }
+        }
+    }
+
+    // Cancel the current download job and immediately restart with fresh network scan.
+    // Status stays DOWNLOADING — seamless to the user.
+    private fun rebalanceDownload(id: Long, selectedStableIds: List<String>) {
+        serviceScope.launch {
+            activeJobs[id]?.cancelAndJoin()
+            activeJobs.remove(id)
+            unregisterRebalanceCallback(id)
+            val resolved     = resolveNetworks(selectedStableIds)
+            val networks     = resolved.map { it.network }
+            val stableIds    = resolved.map { it.stableId }
+            val displayNames = resolved.map { it.displayName }
+            // Pass selectedStableIds so the new job re-registers the rebalance callback
+            startDownload(id, networks, stableIds, displayNames, selectedStableIds = selectedStableIds)
+        }
+    }
+
     // Scan for live networks matching the requested stable IDs.
     // Returns matched NetworkInfo in the same order as stableIds.
     private fun resolveNetworks(stableIds: List<String>): List<NetworkInfo> {
         if (stableIds.isEmpty()) return emptyList()
         val available = monitor.scan().associateBy { it.stableId }
         val resolved  = stableIds.mapNotNull { available[it] }
-        android.util.Log.d("MultiNet.Service", "resolveNetworks($stableIds) → ${resolved.map { it.stableId }}")
         return resolved
     }
 
@@ -143,7 +195,8 @@ class DownloadService : Service() {
         id: Long,
         networks: List<android.net.Network> = emptyList(),
         stableIds: List<String> = emptyList(),
-        displayNames: List<String> = emptyList()
+        displayNames: List<String> = emptyList(),
+        selectedStableIds: List<String> = stableIds  // original full selection for rebalance watching
     ) {
         if (activeJobs[id]?.isActive == true) return
 
@@ -180,26 +233,32 @@ class DownloadService : Service() {
                 // Natural completion
                 dao.updateStatus(id, DownloadStatus.COMPLETED)
                 activeJobs.remove(id)
+                unregisterRebalanceCallback(id)
                 stopSelfIfIdle()
 
             } catch (e: CancellationException) {
-                // Externally cancelled (pause/cancel) — only remove from map.
-                // pauseDownload/cancelDownload will set the status and stop the service
-                // after cancelAndJoin() returns.
                 activeJobs.remove(id)
+                // Note: rebalanceDownload already unregisters the callback before cancelling
 
             } catch (e: Exception) {
                 dao.updateStatus(id, DownloadStatus.FAILED, e.message)
                 activeJobs.remove(id)
+                unregisterRebalanceCallback(id)
                 stopSelfIfIdle()
             }
         }
 
         activeJobs[id] = job
+
+        // Register rebalance callback for multi-network downloads
+        if (selectedStableIds.size > 1) {
+            registerRebalanceCallback(id, selectedStableIds, stableIds.size)
+        }
     }
 
     private fun pauseDownload(id: Long) {
         serviceScope.launch {
+            unregisterRebalanceCallback(id)
             activeJobs[id]?.cancelAndJoin()
             activeJobs.remove(id)
             dao.updateStatus(id, DownloadStatus.PAUSED)
@@ -211,6 +270,7 @@ class DownloadService : Service() {
 
     private fun cancelDownload(id: Long) {
         serviceScope.launch {
+            unregisterRebalanceCallback(id)
             activeJobs[id]?.cancelAndJoin()
             activeJobs.remove(id)
             dao.updateStatus(id, DownloadStatus.FAILED, "Cancelled")

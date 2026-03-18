@@ -3,7 +3,7 @@ package com.multinet.network
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import android.util.Log
+
 
 // Simple one-shot network scanner. Call scan() to get currently available networks.
 class NetworkMonitor(context: Context) {
@@ -49,8 +49,6 @@ class NetworkMonitor(context: Context) {
             result.add(info)
         }
 
-        val sorted = result.sortedBy { it.stableId }
-        Log.d("MultiNet.Scan", "scan() found ${sorted.size} networks: ${sorted.map { it.stableId }}")
-        return sorted
+        return result.sortedBy { it.stableId }
     }
 }
