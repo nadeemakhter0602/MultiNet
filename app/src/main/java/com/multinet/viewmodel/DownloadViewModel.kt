@@ -5,6 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.multinet.database.DownloadDatabase
 import com.multinet.database.DownloadStatus
+import com.multinet.network.NetworkInfo
+import com.multinet.network.NetworkMonitor
 import com.multinet.repository.DownloadRepository
 import com.multinet.repository.DownloadWithChunks
 import kotlinx.coroutines.flow.*
@@ -40,12 +42,20 @@ data class DownloadUiState(
 
 class DownloadViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val db   = DownloadDatabase.getInstance(app)
-    private val repo = DownloadRepository(
+    private val db      = DownloadDatabase.getInstance(app)
+    private val repo    = DownloadRepository(
         dao      = db.downloadDao(),
         chunkDao = db.chunkDao(),
         context  = app
     )
+    private val monitor = NetworkMonitor(app)
+
+    private val _availableNetworks = MutableStateFlow<List<NetworkInfo>>(emptyList())
+    val availableNetworks: StateFlow<List<NetworkInfo>> = _availableNetworks.asStateFlow()
+
+    fun refreshNetworks() {
+        _availableNetworks.value = monitor.scan()
+    }
 
     val downloads: StateFlow<List<DownloadUiState>> = repo
         .getAllDownloads()

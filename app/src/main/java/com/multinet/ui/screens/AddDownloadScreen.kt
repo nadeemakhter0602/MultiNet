@@ -4,14 +4,18 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.multinet.network.NetworkInfo
 import com.multinet.viewmodel.DownloadViewModel
-import kotlinx.coroutines.launch
+
+private enum class NetworkMode { DEFAULT, MULTIPLE }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,13 +26,13 @@ fun AddDownloadScreen(
     var url              by remember { mutableStateOf("") }
     var fileName         by remember { mutableStateOf("") }
     var urlError         by remember { mutableStateOf(false) }
+    var networkMode      by remember { mutableStateOf(NetworkMode.DEFAULT) }
     var dropdownExpanded by remember { mutableStateOf(false) }
+    var selectedIds      by remember { mutableStateOf(setOf<String>()) }
 
-    val snackbarHost = remember { SnackbarHostState() }
-    val scope        = rememberCoroutineScope()
+    val availableNetworks by viewModel.availableNetworks.collectAsState()
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHost) },
         topBar = {
             TopAppBar(
                 title = { Text("New Download") },
@@ -81,7 +85,7 @@ fun AddDownloadScreen(
                 onExpandedChange = { dropdownExpanded = it }
             ) {
                 OutlinedTextField(
-                    value           = "Default",
+                    value           = if (networkMode == NetworkMode.DEFAULT) "Default" else "Multiple",
                     onValueChange   = {},
                     readOnly        = true,
                     label           = { Text("Network") },
@@ -94,17 +98,59 @@ fun AddDownloadScreen(
                 ) {
                     DropdownMenuItem(
                         text    = { Text("Default") },
-                        onClick = { dropdownExpanded = false }
+                        onClick = {
+                            networkMode = NetworkMode.DEFAULT
+                            selectedIds = emptySet()
+                            dropdownExpanded = false
+                        }
                     )
                     DropdownMenuItem(
                         text    = { Text("Multiple") },
                         onClick = {
+                            networkMode = NetworkMode.MULTIPLE
                             dropdownExpanded = false
-                            scope.launch {
-                                snackbarHost.showSnackbar("Multi-network mode coming soon")
-                            }
+                            viewModel.refreshNetworks()  // scan on first open
                         }
                     )
+                }
+            }
+
+            // Network list — shown only when Multiple is selected
+            if (networkMode == NetworkMode.MULTIPLE) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Available Networks", style = MaterialTheme.typography.labelMedium)
+                    IconButton(onClick = { viewModel.refreshNetworks() }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                    }
+                }
+
+                if (availableNetworks.isEmpty()) {
+                    Text(
+                        "No networks found. Tap refresh to scan.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                } else {
+                    Card {
+                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                            availableNetworks.forEach { network ->
+                                NetworkRow(
+                                    network   = network,
+                                    checked   = network.stableId in selectedIds,
+                                    onChecked = { checked ->
+                                        selectedIds = if (checked)
+                                            selectedIds + network.stableId
+                                        else
+                                            selectedIds - network.stableId
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -125,6 +171,33 @@ fun AddDownloadScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Start Download")
+            }
+        }
+    }
+}
+
+@Composable
+private fun NetworkRow(
+    network:   NetworkInfo,
+    checked:   Boolean,
+    onChecked: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(checked = checked, onCheckedChange = onChecked)
+        Spacer(Modifier.width(8.dp))
+        Column {
+            Text(network.displayName, style = MaterialTheme.typography.bodyMedium)
+            if (network.isMetered) {
+                Text(
+                    "Metered",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         }
     }
