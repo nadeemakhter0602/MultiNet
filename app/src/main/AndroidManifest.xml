@@ -25,6 +25,7 @@
     <application
         android:name=".MultinetApp"
         android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.Multinet"
         android:allowBackup="true"
         android:supportsRtl="true">
