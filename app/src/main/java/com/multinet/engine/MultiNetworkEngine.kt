@@ -181,10 +181,12 @@ class MultiNetworkEngine(private val chunkDao: ChunkDao) {
         stableIds: List<String>,
         displayNames: List<String>
     ): List<ChunkEntity> {
-        val chunkSize = totalBytes / CONNECTIONS
-        return (0 until CONNECTIONS).map { i ->
+        // 4 chunks per network — more connections = more parallelism
+        val totalChunks = CONNECTIONS * stableIds.size.coerceAtLeast(1)
+        val chunkSize   = totalBytes / totalChunks
+        return (0 until totalChunks).map { i ->
             val start = i * chunkSize
-            val end   = if (i == CONNECTIONS - 1) totalBytes - 1 else start + chunkSize - 1
+            val end   = if (i == totalChunks - 1) totalBytes - 1 else start + chunkSize - 1
             ChunkEntity(
                 downloadId         = downloadId,
                 index              = i,
