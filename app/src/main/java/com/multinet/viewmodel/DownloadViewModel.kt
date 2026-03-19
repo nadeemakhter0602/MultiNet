@@ -31,9 +31,7 @@ data class NetworkProgressState(
     val totalBytes: Long,
     val speedBps: Long,
     val chunks: List<ChunkUiState>,
-    val chunksComplete: Int,
-    val chunksTotal: Int,
-    val workerCount: Int
+    val chunksComplete: Int
 ) {
     val progress: Float      get() = if (totalBytes > 0) downloadedBytes.toFloat() / totalBytes else 0f
     val progressPercent: Int get() = (progress * 100).toInt()
@@ -141,8 +139,8 @@ class DownloadViewModel(app: Application) : AndroidViewModel(app) {
         fileName: String,
         selectedNetworks: List<NetworkInfo> = emptyList(),
         minChunkSizeBytes: Long = 256 * 1024L,
-        targetChunkCount: Int = 2000,
-        workerCount: Int = 4
+        targetChunkCount: Int = 500,
+        workerCount: Int = 10
     ) {
         viewModelScope.launch {
             repo.addDownload(url.trim(), fileName.trim(), selectedNetworks, minChunkSizeBytes, targetChunkCount, workerCount)
@@ -197,11 +195,7 @@ private fun DownloadWithChunks.toUiState(chunkSpeeds: Map<Long, Long>): Download
                     totalBytes      = groupChunks.sumOf { it.totalBytes },
                     speedBps        = groupChunks.sumOf { it.speedBps },
                     chunks          = groupChunks,
-                    chunksComplete  = chunks.count { chunk ->
-                        chunk.networkStableId == stableId && chunk.status == ChunkStatus.COMPLETE
-                    },
-                    chunksTotal     = chunks.count { it.networkStableId == stableId },
-                    workerCount     = chunks.count { it.networkStableId == stableId && it.status == ChunkStatus.DOWNLOADING }
+                    chunksComplete  = chunks.count { it.networkStableId == stableId && it.status == ChunkStatus.COMPLETE }
                 )
             }
             .sortedBy { it.displayName }

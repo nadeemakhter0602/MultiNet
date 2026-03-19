@@ -68,7 +68,7 @@ fun DefaultDownloadCard(
             if (item.chunks.isNotEmpty()) {
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text  = "${item.workerCount} workers · ${item.minChunkSizeBytes / 1024} KB chunk size · ${item.workerProgress.sumOf { it.chunksComplete }}/${item.chunks.size} chunks done",
+                    text  = "${item.workerCount} workers · ${(item.totalBytes / item.chunks.size).toDisplaySize()} chunk size · ${item.workerProgress.sumOf { it.chunksComplete }}/${item.chunks.size} chunks done",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                 )

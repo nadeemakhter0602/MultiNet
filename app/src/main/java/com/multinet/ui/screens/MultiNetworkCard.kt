@@ -109,10 +109,10 @@ fun MultiNetworkCard(
 
             // Total worker/chunk info
             if (item.chunks.isNotEmpty()) {
-                val totalWorkers = item.networkProgress.sumOf { it.workerCount }
-                val totalDone    = item.workerProgress.sumOf { it.chunksComplete }
+                val totalDone     = item.workerProgress.sumOf { it.chunksComplete }
+                val actualChunkKb = item.totalBytes / item.chunks.size / 1024
                 Text(
-                    text  = "${item.workerCount} workers · ${item.minChunkSizeBytes / 1024} KB chunk size · $totalDone/${item.chunks.size} chunks done",
+                    text  = "${item.workerCount} workers · $actualChunkKb KB chunk size · $totalDone/${item.chunks.size} chunks done",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                 )
@@ -193,7 +193,6 @@ private fun NetworkSummaryRow(net: NetworkProgressState, status: DownloadStatus)
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            // Speed
             if (status == DownloadStatus.DOWNLOADING && net.speedBps > 0) {
                 Text(
                     text  = net.speedBps.toDisplaySpeed(),
@@ -204,9 +203,8 @@ private fun NetworkSummaryRow(net: NetworkProgressState, status: DownloadStatus)
             } else {
                 Spacer(Modifier.weight(1f))
             }
-            // Workers + chunks
             Text(
-                text  = "${net.workerCount} workers · ${net.chunksComplete}/${net.chunksTotal} chunks",
+                text  = "${net.chunksComplete} chunks done",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )

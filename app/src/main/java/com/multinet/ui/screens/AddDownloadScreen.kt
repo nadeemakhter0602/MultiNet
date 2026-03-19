@@ -33,8 +33,8 @@ fun AddDownloadScreen(
     var dropdownExpanded  by remember { mutableStateOf(false) }
     var selectedIds       by remember { mutableStateOf(setOf<String>()) }
     var minChunkSizeKb    by remember { mutableStateOf("256") }   // KB, default 256KB
-    var chunkCount        by remember { mutableStateOf("2000") }  // 0 stored as 2000 in UI
-    var workerCount       by remember { mutableStateOf("4") }
+    var chunkCount        by remember { mutableStateOf("500") }  // 0 stored as 2000 in UI
+    var workerCount       by remember { mutableStateOf("10") }
 
     val availableNetworks by viewModel.availableNetworks.collectAsState()
 

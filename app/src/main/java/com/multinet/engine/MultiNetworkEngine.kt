@@ -26,7 +26,7 @@ class MultiNetworkEngine(private val chunkDao: ChunkDao) {
         stableIds: List<String>,
         displayNames: List<String>,
         minChunkSizeBytes: Long = 256 * 1024L,
-        targetChunkCount: Int = 2000,
+        targetChunkCount: Int = 500,
         workerCount: Int = CONNECTIONS,
         onProgress: suspend (downloaded: Long, total: Long, speedBps: Long) -> Unit
     ) = withContext(Dispatchers.IO) {
@@ -172,7 +172,7 @@ class MultiNetworkEngine(private val chunkDao: ChunkDao) {
         downloadId: Long,
         totalBytes: Long,
         minChunkSizeBytes: Long = 256 * 1024L,
-        targetChunkCount: Int = 2000
+        targetChunkCount: Int = 500
     ): List<ChunkEntity> {
         val autoChunkSize = totalBytes / targetChunkCount.coerceAtLeast(1)
         val chunkSize     = maxOf(minChunkSizeBytes, autoChunkSize)

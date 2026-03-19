@@ -56,8 +56,8 @@ class DownloadRepository(
         fileName: String,
         selectedNetworks: List<NetworkInfo> = emptyList(),
         minChunkSizeBytes: Long = 256 * 1024L,
-        targetChunkCount: Int = 2000,
-        workerCount: Int = 4
+        targetChunkCount: Int = 500,
+        workerCount: Int = 10
     ): Long {
         val filePath   = buildFilePath(fileName)
         val networkIds = selectedNetworks.joinToString(",") { it.stableId }

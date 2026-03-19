@@ -50,8 +50,8 @@ data class DownloadEntity(
     val minChunkSizeBytes: Long = 256 * 1024L,
 
     // Target chunk count (default 2000, auto-sized by minChunkSizeBytes floor)
-    val targetChunkCount: Int = 2000,
+    val targetChunkCount: Int = 500,
 
     // Number of parallel worker connections (default 4)
-    val workerCount: Int = 4
+    val workerCount: Int = 10
 )

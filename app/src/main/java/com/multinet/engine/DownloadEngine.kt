@@ -51,7 +51,7 @@ class DownloadEngine(
         stableIds: List<String> = emptyList(),
         displayNames: List<String> = emptyList(),
         minChunkSizeBytes: Long = 256 * 1024L,
-        targetChunkCount: Int = 2000,
+        targetChunkCount: Int = 500,
         workerCount: Int = CONNECTIONS,
         onProgress: suspend (downloaded: Long, total: Long, speedBps: Long) -> Unit
     ) {

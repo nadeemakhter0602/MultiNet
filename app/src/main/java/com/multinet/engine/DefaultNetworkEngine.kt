@@ -31,7 +31,7 @@ class DefaultNetworkEngine(private val chunkDao: ChunkDao) {
         totalBytes: Long,
         supportsResume: Boolean,
         minChunkSizeBytes: Long = 256 * 1024L,
-        targetChunkCount: Int = 2000,
+        targetChunkCount: Int = 500,
         workerCount: Int = CONNECTIONS,
         onProgress: suspend (downloaded: Long, total: Long, speedBps: Long) -> Unit
     ) = withContext(Dispatchers.IO) {
@@ -55,7 +55,7 @@ class DefaultNetworkEngine(private val chunkDao: ChunkDao) {
         filePath: String,
         totalBytes: Long,
         minChunkSizeBytes: Long = 256 * 1024L,
-        targetChunkCount: Int = 2000,
+        targetChunkCount: Int = 500,
         workerCount: Int = CONNECTIONS,
         onProgress: suspend (Long, Long, Long) -> Unit
     ) = withContext(Dispatchers.IO) {
@@ -178,7 +178,7 @@ class DefaultNetworkEngine(private val chunkDao: ChunkDao) {
         downloadId: Long,
         totalBytes: Long,
         minChunkSizeBytes: Long = 256 * 1024L,
-        targetChunkCount: Int = 2000
+        targetChunkCount: Int = 500
     ): List<ChunkEntity> {
         val autoChunkSize = totalBytes / targetChunkCount.coerceAtLeast(1)
         val chunkSize     = maxOf(minChunkSizeBytes, autoChunkSize)
