@@ -8,7 +8,7 @@ import androidx.room.TypeConverters
 
 @Database(
     entities = [DownloadEntity::class, ChunkEntity::class],
-    version  = 7,
+    version  = 9,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

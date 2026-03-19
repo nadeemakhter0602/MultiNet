@@ -44,5 +44,14 @@ data class DownloadEntity(
     val selectedNetworkIds: String = "",
 
     // Accumulated active download time in milliseconds (pausing stops the clock)
-    val activeMs: Long = 0L
+    val activeMs: Long = 0L,
+
+    // Minimum chunk size in bytes for the queue-based downloader (default 256KB)
+    val minChunkSizeBytes: Long = 256 * 1024L,
+
+    // Target chunk count (default 2000, auto-sized by minChunkSizeBytes floor)
+    val targetChunkCount: Int = 2000,
+
+    // Number of parallel worker connections (default 4)
+    val workerCount: Int = 4
 )

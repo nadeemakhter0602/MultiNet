@@ -218,15 +218,18 @@ class DownloadService : Service() {
                 val existingMs   = download.activeMs
 
                 engine.download(
-                    id             = id,
-                    url            = download.url,
-                    filePath       = download.filePath,
-                    resumeFrom     = resumeFrom,
-                    totalBytes     = total,
-                    supportsResume = supportsResume,
-                    networks       = networks,
-                    stableIds      = stableIds,
-                    displayNames   = displayNames
+                    id                = id,
+                    url               = download.url,
+                    filePath          = download.filePath,
+                    resumeFrom        = resumeFrom,
+                    totalBytes        = total,
+                    supportsResume    = supportsResume,
+                    networks          = networks,
+                    stableIds         = stableIds,
+                    displayNames      = displayNames,
+                    minChunkSizeBytes = download.minChunkSizeBytes,
+                    targetChunkCount  = download.targetChunkCount,
+                    workerCount       = download.workerCount
                 ) { downloaded, totalBytes, speedBps ->
                     val activeMs = existingMs + (System.currentTimeMillis() - sessionStart)
                     dao.updateProgress(id, downloaded, speedBps)

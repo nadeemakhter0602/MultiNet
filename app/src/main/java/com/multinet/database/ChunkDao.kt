@@ -22,6 +22,9 @@ interface ChunkDao {
     @Query("UPDATE chunks SET networkStableId = :stableId, networkDisplayName = :displayName WHERE id = :id")
     suspend fun updateNetwork(id: Long, stableId: String, displayName: String = "")
 
+    @Query("UPDATE chunks SET workerIndex = :workerIndex WHERE id = :id")
+    suspend fun updateWorker(id: Long, workerIndex: Int)
+
     @Query("SELECT * FROM chunks WHERE id = :id")
     suspend fun getById(id: Long): ChunkEntity?
 

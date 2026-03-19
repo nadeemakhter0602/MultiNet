@@ -54,7 +54,10 @@ class DownloadRepository(
     suspend fun addDownload(
         url: String,
         fileName: String,
-        selectedNetworks: List<NetworkInfo> = emptyList()
+        selectedNetworks: List<NetworkInfo> = emptyList(),
+        minChunkSizeBytes: Long = 256 * 1024L,
+        targetChunkCount: Int = 2000,
+        workerCount: Int = 4
     ): Long {
         val filePath   = buildFilePath(fileName)
         val networkIds = selectedNetworks.joinToString(",") { it.stableId }
@@ -63,7 +66,10 @@ class DownloadRepository(
             filePath           = filePath,
             fileName           = fileName,
             status             = DownloadStatus.QUEUED,
-            selectedNetworkIds = networkIds
+            selectedNetworkIds = networkIds,
+            minChunkSizeBytes  = minChunkSizeBytes,
+            targetChunkCount   = targetChunkCount,
+            workerCount        = workerCount
         )
         val id = dao.insert(entity)
         context.startService(DownloadService.startIntent(context, id, selectedNetworks))

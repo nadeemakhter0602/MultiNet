@@ -30,13 +30,16 @@ class DefaultNetworkEngine(private val chunkDao: ChunkDao) {
         resumeFrom: Long,
         totalBytes: Long,
         supportsResume: Boolean,
+        minChunkSizeBytes: Long = 256 * 1024L,
+        targetChunkCount: Int = 2000,
+        workerCount: Int = CONNECTIONS,
         onProgress: suspend (downloaded: Long, total: Long, speedBps: Long) -> Unit
     ) = withContext(Dispatchers.IO) {
         File(filePath).parentFile?.mkdirs()
 
         when {
             supportsResume && totalBytes > 0 ->
-                downloadChunked(id, url, filePath, totalBytes, onProgress)
+                downloadChunked(id, url, filePath, totalBytes, minChunkSizeBytes, targetChunkCount, workerCount, onProgress)
             supportsResume && resumeFrom > 0 ->
                 downloadResumable(url, File(filePath), resumeFrom, totalBytes, onProgress)
             else ->
@@ -51,6 +54,9 @@ class DefaultNetworkEngine(private val chunkDao: ChunkDao) {
         url: String,
         filePath: String,
         totalBytes: Long,
+        minChunkSizeBytes: Long = 256 * 1024L,
+        targetChunkCount: Int = 2000,
+        workerCount: Int = CONNECTIONS,
         onProgress: suspend (Long, Long, Long) -> Unit
     ) = withContext(Dispatchers.IO) {
 
@@ -61,25 +67,26 @@ class DefaultNetworkEngine(private val chunkDao: ChunkDao) {
 
         var chunks = chunkDao.getChunksFor(id)
         if (chunks.isEmpty()) {
-            chunkDao.insertAll(buildChunks(id, totalBytes))
-            chunks = chunkDao.getChunksFor(id)  // reload to get DB-assigned IDs
+            chunkDao.insertAll(buildChunks(id, totalBytes, minChunkSizeBytes, targetChunkCount))
+            chunks = chunkDao.getChunksFor(id)
         }
 
+        val queue             = java.util.concurrent.ConcurrentLinkedQueue(chunks.filter { it.status != ChunkStatus.COMPLETE })
         val totalDownloaded   = AtomicLong(chunks.sumOf { it.downloadedBytes })
         var lastReportTime    = System.currentTimeMillis()
         var bytesAtLastReport = totalDownloaded.get()
 
         coroutineScope {
-            chunks
-                .filter { it.status != ChunkStatus.COMPLETE }
-                .map { chunk ->
-                    async {
+            (0 until workerCount).map { workerIdx ->
+                async {
+                    while (true) {
+                        val chunk = queue.poll() ?: break
+                        chunkDao.updateWorker(chunk.id, workerIdx)
                         downloadChunk(
                             url   = url,
                             file  = file,
                             chunk = chunk,
                             onChunkProgress = { chunkDownloaded ->
-                                // Each chunk updates its own row in DB every second
                                 chunkDao.updateProgress(chunk.id, chunkDownloaded, ChunkStatus.DOWNLOADING)
                             },
                             onBytes = { bytesRead ->
@@ -96,7 +103,7 @@ class DefaultNetworkEngine(private val chunkDao: ChunkDao) {
                         )
                     }
                 }
-                .awaitAll()
+            }.awaitAll()
         }
 
         onProgress(totalDownloaded.get(), totalBytes, 0L)
@@ -167,11 +174,18 @@ class DefaultNetworkEngine(private val chunkDao: ChunkDao) {
             }
         }
 
-    private fun buildChunks(downloadId: Long, totalBytes: Long): List<ChunkEntity> {
-        val chunkSize = totalBytes / CONNECTIONS
-        return (0 until CONNECTIONS).map { i ->
+    private fun buildChunks(
+        downloadId: Long,
+        totalBytes: Long,
+        minChunkSizeBytes: Long = 256 * 1024L,
+        targetChunkCount: Int = 2000
+    ): List<ChunkEntity> {
+        val autoChunkSize = totalBytes / targetChunkCount.coerceAtLeast(1)
+        val chunkSize     = maxOf(minChunkSizeBytes, autoChunkSize)
+        val count         = (totalBytes / chunkSize).toInt().coerceAtLeast(1)
+        return (0 until count).map { i ->
             val start = i * chunkSize
-            val end   = if (i == CONNECTIONS - 1) totalBytes - 1 else start + chunkSize - 1
+            val end   = if (i == count - 1) totalBytes - 1 else start + chunkSize - 1
             ChunkEntity(downloadId = downloadId, index = i, startByte = start, endByte = end)
         }
     }

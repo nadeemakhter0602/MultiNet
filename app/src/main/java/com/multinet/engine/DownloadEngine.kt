@@ -50,10 +50,13 @@ class DownloadEngine(
         networks: List<Network> = emptyList(),
         stableIds: List<String> = emptyList(),
         displayNames: List<String> = emptyList(),
+        minChunkSizeBytes: Long = 256 * 1024L,
+        targetChunkCount: Int = 2000,
+        workerCount: Int = CONNECTIONS,
         onProgress: suspend (downloaded: Long, total: Long, speedBps: Long) -> Unit
     ) {
         if (networks.isEmpty()) {
-            defaultEngine.download(id, url, filePath, resumeFrom, totalBytes, supportsResume, onProgress)
+            defaultEngine.download(id, url, filePath, resumeFrom, totalBytes, supportsResume, minChunkSizeBytes, targetChunkCount, workerCount, onProgress)
         } else {
             multiEngine.download(id, url, filePath, totalBytes, networks, stableIds, displayNames, onProgress)
         }

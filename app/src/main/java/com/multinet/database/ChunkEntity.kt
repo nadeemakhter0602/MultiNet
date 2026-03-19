@@ -45,5 +45,8 @@ data class ChunkEntity(
     val networkStableId: String = "",
 
     // Human-readable label from NetworkMonitor e.g. "Wi-Fi", "Mobile Data · SIM 2"
-    val networkDisplayName: String = ""
+    val networkDisplayName: String = "",
+
+    // Which worker is currently processing this chunk (-1 = unassigned)
+    val workerIndex: Int = -1
 )

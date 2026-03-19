@@ -24,12 +24,15 @@ fun AddDownloadScreen(
     viewModel: DownloadViewModel,
     onBack: () -> Unit
 ) {
-    var url              by remember { mutableStateOf("") }
-    var fileName         by remember { mutableStateOf("") }
-    var urlError         by remember { mutableStateOf(false) }
-    var networkMode      by remember { mutableStateOf(NetworkMode.DEFAULT) }
-    var dropdownExpanded by remember { mutableStateOf(false) }
-    var selectedIds      by remember { mutableStateOf(setOf<String>()) }
+    var url               by remember { mutableStateOf("") }
+    var fileName          by remember { mutableStateOf("") }
+    var urlError          by remember { mutableStateOf(false) }
+    var networkMode       by remember { mutableStateOf(NetworkMode.DEFAULT) }
+    var dropdownExpanded  by remember { mutableStateOf(false) }
+    var selectedIds       by remember { mutableStateOf(setOf<String>()) }
+    var minChunkSizeKb    by remember { mutableStateOf("256") }   // KB, default 256KB
+    var chunkCount        by remember { mutableStateOf("2000") }  // 0 stored as 2000 in UI
+    var workerCount       by remember { mutableStateOf("4") }
 
     val availableNetworks by viewModel.availableNetworks.collectAsState()
 
@@ -157,6 +160,42 @@ fun AddDownloadScreen(
 
             Spacer(Modifier.height(8.dp))
 
+            // ── Advanced settings ─────────────────────────────────────────────
+            OutlinedTextField(
+                value         = minChunkSizeKb,
+                onValueChange = { minChunkSizeKb = it.filter { c -> c.isDigit() } },
+                label         = { Text("Min Chunk Size (KB)") },
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                ),
+                singleLine    = true,
+                modifier      = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value         = chunkCount,
+                onValueChange = { chunkCount = it.filter { c -> c.isDigit() } },
+                label         = { Text("Chunk Count") },
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                ),
+                singleLine    = true,
+                modifier      = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value         = workerCount,
+                onValueChange = { workerCount = it.filter { c -> c.isDigit() } },
+                label         = { Text("Workers") },
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                ),
+                singleLine    = true,
+                modifier      = Modifier.fillMaxWidth()
+            )
+
+            Spacer(Modifier.height(8.dp))
+
             val multiNetworkError = networkMode == NetworkMode.MULTIPLE && selectedIds.size < 2
             val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -180,7 +219,10 @@ fun AddDownloadScreen(
                     val selectedNetworks = if (networkMode == NetworkMode.MULTIPLE) {
                         availableNetworks.filter { it.stableId in selectedIds }
                     } else emptyList()
-                    viewModel.addDownload(url, name, selectedNetworks)
+                    val minChunkBytes = (minChunkSizeKb.toLongOrNull() ?: 256L) * 1024L
+                    val chunks        = chunkCount.toIntOrNull() ?: 2000
+                    val workers       = workerCount.toIntOrNull() ?: 4
+                    viewModel.addDownload(url, name, selectedNetworks, minChunkBytes, chunks, workers)
                     onBack()
                 },
                 modifier = Modifier.fillMaxWidth()

@@ -37,6 +37,17 @@ data class NetworkProgressState(
     val progressPercent: Int get() = (progress * 100).toInt()
 }
 
+data class WorkerProgressState(
+    val workerIndex: Int,
+    val downloadedBytes: Long,
+    val totalBytes: Long,
+    val chunksComplete: Int,
+    val chunksTotal: Int
+) {
+    val progress: Float      get() = if (totalBytes > 0) downloadedBytes.toFloat() / totalBytes else 0f
+    val progressPercent: Int get() = (progress * 100).toInt()
+}
+
 data class DownloadUiState(
     val id: Long,
     val fileName: String,
@@ -49,8 +60,11 @@ data class DownloadUiState(
     val speedBps: Long,
     val chunks: List<ChunkUiState>,
     val networkProgress: List<NetworkProgressState>,
+    val workerProgress: List<WorkerProgressState>,
     val isMultiNetwork: Boolean,
-    val activeMs: Long
+    val activeMs: Long,
+    val workerCount: Int,
+    val minChunkSizeBytes: Long
 ) {
     val progressPercent: Int get() = ((progress ?: 0f) * 100).toInt()
 
@@ -123,10 +137,13 @@ class DownloadViewModel(app: Application) : AndroidViewModel(app) {
     fun addDownload(
         url: String,
         fileName: String,
-        selectedNetworks: List<NetworkInfo> = emptyList()
+        selectedNetworks: List<NetworkInfo> = emptyList(),
+        minChunkSizeBytes: Long = 256 * 1024L,
+        targetChunkCount: Int = 2000,
+        workerCount: Int = 4
     ) {
         viewModelScope.launch {
-            repo.addDownload(url.trim(), fileName.trim(), selectedNetworks)
+            repo.addDownload(url.trim(), fileName.trim(), selectedNetworks, minChunkSizeBytes, targetChunkCount, workerCount)
         }
     }
 
@@ -149,6 +166,21 @@ private fun DownloadWithChunks.toUiState(chunkSpeeds: Map<Long, Long>): Download
             speedBps           = chunkSpeeds[chunk.id] ?: 0L
         )
     }
+
+    // Per-worker progress — group chunks by workerIndex (only assigned workers)
+    val workerProgress = chunks
+        .filter { it.workerIndex >= 0 }
+        .groupBy { it.workerIndex }
+        .map { (workerIdx, workerChunks) ->
+            WorkerProgressState(
+                workerIndex    = workerIdx,
+                downloadedBytes = workerChunks.sumOf { it.downloadedBytes },
+                totalBytes      = workerChunks.sumOf { it.endByte - it.startByte + 1 },
+                chunksComplete  = workerChunks.count { it.status == ChunkStatus.COMPLETE },
+                chunksTotal     = workerChunks.size
+            )
+        }
+        .sortedBy { it.workerIndex }
 
     val networkProgress = if (isMultiNetwork) {
         // Group by current networkStableId — each group = one summary row
@@ -180,8 +212,11 @@ private fun DownloadWithChunks.toUiState(chunkSpeeds: Map<Long, Long>): Download
         speedBps        = download.speedBps,
         chunks          = chunkUiStates,
         networkProgress = networkProgress,
-        isMultiNetwork  = isMultiNetwork,
-        activeMs        = download.activeMs
+        workerProgress    = workerProgress,
+        isMultiNetwork    = isMultiNetwork,
+        activeMs          = download.activeMs,
+        workerCount       = download.workerCount,
+        minChunkSizeBytes = download.minChunkSizeBytes
     )
 }
 

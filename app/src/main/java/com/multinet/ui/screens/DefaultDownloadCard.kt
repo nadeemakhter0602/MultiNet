@@ -54,25 +54,24 @@ fun DefaultDownloadCard(
 
             Spacer(Modifier.height(8.dp))
 
-            // Progress bar — segmented when chunk data is available
+            // Progress bar
             when {
-                item.chunks.isNotEmpty() && item.totalBytes > 0 -> {
-                    ChunkedProgressBar(
-                        chunks     = item.chunks,
-                        totalBytes = item.totalBytes,
-                        height     = 12.dp,
-                        modifier   = Modifier.fillMaxWidth()
-                    )
-                }
-                item.progress != null -> {
-                    LinearProgressIndicator(
-                        progress = { item.progress },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                item.status == DownloadStatus.DOWNLOADING -> {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
+                item.progress != null -> LinearProgressIndicator(
+                    progress = { item.progress },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                item.status == DownloadStatus.DOWNLOADING -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                else -> {}
+            }
+
+            // Worker / chunk info — shown when chunks are assigned
+            if (item.chunks.isNotEmpty()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text  = "${item.workerCount} workers · ${item.minChunkSizeBytes / 1024} KB chunk size · ${item.workerProgress.sumOf { it.chunksComplete }}/${item.chunks.size} chunks done",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                )
             }
 
             Spacer(Modifier.height(4.dp))
