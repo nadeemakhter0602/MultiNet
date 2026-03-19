@@ -25,6 +25,9 @@ class MultiNetworkEngine(private val chunkDao: ChunkDao) {
         networks: List<Network>,
         stableIds: List<String>,
         displayNames: List<String>,
+        minChunkSizeBytes: Long = 256 * 1024L,
+        targetChunkCount: Int = 2000,
+        workerCount: Int = CONNECTIONS,
         onProgress: suspend (downloaded: Long, total: Long, speedBps: Long) -> Unit
     ) = withContext(Dispatchers.IO) {
         File(filePath).parentFile?.mkdirs()
@@ -33,7 +36,7 @@ class MultiNetworkEngine(private val chunkDao: ChunkDao) {
 
         data class NetworkClient(val stableId: String, val displayName: String, val client: OkHttpClient)
 
-        val resolvedClients = networks.mapIndexed { i, network ->
+        val clients = networks.mapIndexed { i, network ->
             NetworkClient(
                 stableId    = stableIds.getOrElse(i) { "NET_$i" },
                 displayName = displayNames.getOrElse(i) { "" },
@@ -43,83 +46,73 @@ class MultiNetworkEngine(private val chunkDao: ChunkDao) {
                     .socketFactory(network.socketFactory)
                     .build()
             )
-        }.associateBy { it.stableId }
-
-        val defaultClient = OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .build()
+        }
 
         var chunks = chunkDao.getChunksFor(id)
         if (chunks.isEmpty()) {
-            chunkDao.insertAll(buildChunks(id, totalBytes, stableIds, displayNames))
-            chunks = chunkDao.getChunksFor(id)
-        } else {
-            val incomplete = chunks.filter { it.status != ChunkStatus.COMPLETE }
-            incomplete.forEachIndexed { i, chunk ->
-                val sid = stableIds[i % stableIds.size]
-                val nc  = resolvedClients[sid]
-                if (nc != null) chunkDao.updateNetwork(chunk.id, nc.stableId, nc.displayName)
-            }
+            chunkDao.insertAll(buildChunks(id, totalBytes, minChunkSizeBytes, targetChunkCount))
             chunks = chunkDao.getChunksFor(id)
         }
 
+        val queue             = java.util.concurrent.ConcurrentLinkedQueue(chunks.filter { it.status != ChunkStatus.COMPLETE })
         val totalDownloaded   = AtomicLong(chunks.sumOf { it.downloadedBytes })
         var lastReportTime    = System.currentTimeMillis()
         var bytesAtLastReport = totalDownloaded.get()
 
         supervisorScope {
-            chunks
-                .filter { it.status != ChunkStatus.COMPLETE }
-                .mapIndexed { i, chunk ->
+            clients.flatMapIndexed { netIdx, nc ->
+                (0 until workerCount).map { wIdx ->
+                    val globalWorkerIdx = netIdx * workerCount + wIdx
                     async {
-                        val clientsToTry = stableIds.indices.map { j ->
-                            val sid = stableIds[j]
-                            resolvedClients[sid] ?: NetworkClient(sid, sid, defaultClient)
-                        }
-                        var clientIndex = i % clientsToTry.size
-                        var attempts    = 0
-
-                        while (attempts < clientsToTry.size) {
-                            val nc         = clientsToTry[clientIndex]
+                        while (true) {
+                            val chunk = queue.poll() ?: break
                             val freshChunk = chunkDao.getById(chunk.id) ?: chunk
-                            if (freshChunk.networkStableId != nc.stableId) {
-                                chunkDao.updateNetwork(freshChunk.id, nc.stableId, nc.displayName)
-                            }
-                            try {
-                                downloadChunk(
-                                    url    = url,
-                                    file   = file,
-                                    chunk  = freshChunk,
-                                    client = nc.client,
-                                    onChunkProgress = { chunkDownloaded ->
-                                        chunkDao.updateProgress(freshChunk.id, chunkDownloaded, ChunkStatus.DOWNLOADING)
-                                    },
-                                    onBytes = { bytesRead ->
-                                        val downloaded = totalDownloaded.addAndGet(bytesRead)
-                                        val now = System.currentTimeMillis()
-                                        if (now - lastReportTime >= 1000) {
-                                            val elapsed = (now - lastReportTime) / 1000.0
-                                            val speed = ((downloaded - bytesAtLastReport) / elapsed).toLong()
-                                            runBlocking { onProgress(downloaded, totalBytes, speed) }
-                                            lastReportTime    = now
-                                            bytesAtLastReport = downloaded
+                            var attempts    = 0
+                            var currentClient = nc.client
+                            var currentNc = nc
+                            while (attempts <= clients.size) {
+                                try {
+                                    downloadChunk(
+                                        url    = url,
+                                        file   = file,
+                                        chunk  = freshChunk,
+                                        client = currentClient,
+                                        onChunkProgress = { chunkDownloaded ->
+                                            chunkDao.updateNetwork(freshChunk.id, currentNc.stableId, currentNc.displayName)
+                                            chunkDao.updateWorker(freshChunk.id, globalWorkerIdx)
+                                            chunkDao.updateProgress(freshChunk.id, chunkDownloaded, ChunkStatus.DOWNLOADING)
+                                        },
+                                        onBytes = { bytesRead ->
+                                            val downloaded = totalDownloaded.addAndGet(bytesRead)
+                                            val now = System.currentTimeMillis()
+                                            if (now - lastReportTime >= 1000) {
+                                                val elapsed = (now - lastReportTime) / 1000.0
+                                                val speed = ((downloaded - bytesAtLastReport) / elapsed).toLong()
+                                                runBlocking { onProgress(downloaded, totalBytes, speed) }
+                                                lastReportTime    = now
+                                                bytesAtLastReport = downloaded
+                                            }
                                         }
-                                    }
-                                )
-                                break
-
-                            } catch (e: CancellationException) {
-                                throw e
-                            } catch (e: Exception) {
+                                    )
+                                    break
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
                                     attempts++
-                                clientIndex = (clientIndex + 1) % clientsToTry.size
-                                if (attempts >= clientsToTry.size) throw e
+                                    if (attempts >= clients.size) {
+                                        chunkDao.updateProgress(freshChunk.id, freshChunk.downloadedBytes, ChunkStatus.PENDING)
+                                        throw e
+                                    }
+                                    // Try next network client
+                                    val fallbackIdx = (netIdx + attempts) % clients.size
+                                    currentNc     = clients[fallbackIdx]
+                                    currentClient = currentNc.client
+                                }
                             }
                         }
                     }
                 }
-                .awaitAll()
+            }.awaitAll()
         }
 
         onProgress(totalDownloaded.get(), totalBytes, 0L)
@@ -178,23 +171,16 @@ class MultiNetworkEngine(private val chunkDao: ChunkDao) {
     private fun buildChunks(
         downloadId: Long,
         totalBytes: Long,
-        stableIds: List<String>,
-        displayNames: List<String>
+        minChunkSizeBytes: Long = 256 * 1024L,
+        targetChunkCount: Int = 2000
     ): List<ChunkEntity> {
-        // 4 chunks per network — more connections = more parallelism
-        val totalChunks = CONNECTIONS * stableIds.size.coerceAtLeast(1)
-        val chunkSize   = totalBytes / totalChunks
-        return (0 until totalChunks).map { i ->
+        val autoChunkSize = totalBytes / targetChunkCount.coerceAtLeast(1)
+        val chunkSize     = maxOf(minChunkSizeBytes, autoChunkSize)
+        val count         = (totalBytes / chunkSize).toInt().coerceAtLeast(1)
+        return (0 until count).map { i ->
             val start = i * chunkSize
-            val end   = if (i == totalChunks - 1) totalBytes - 1 else start + chunkSize - 1
-            ChunkEntity(
-                downloadId         = downloadId,
-                index              = i,
-                startByte          = start,
-                endByte            = end,
-                networkStableId    = stableIds.getOrElse(i % stableIds.size.coerceAtLeast(1)) { "" },
-                networkDisplayName = displayNames.getOrElse(i % displayNames.size.coerceAtLeast(1)) { "" }
-            )
+            val end   = if (i == count - 1) totalBytes - 1 else start + chunkSize - 1
+            ChunkEntity(downloadId = downloadId, index = i, startByte = start, endByte = end)
         }
     }
 

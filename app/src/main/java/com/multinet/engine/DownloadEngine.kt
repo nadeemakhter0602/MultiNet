@@ -58,7 +58,7 @@ class DownloadEngine(
         if (networks.isEmpty()) {
             defaultEngine.download(id, url, filePath, resumeFrom, totalBytes, supportsResume, minChunkSizeBytes, targetChunkCount, workerCount, onProgress)
         } else {
-            multiEngine.download(id, url, filePath, totalBytes, networks, stableIds, displayNames, onProgress)
+            multiEngine.download(id, url, filePath, totalBytes, networks, stableIds, displayNames, minChunkSizeBytes, targetChunkCount, workerCount, onProgress)
         }
     }
 }

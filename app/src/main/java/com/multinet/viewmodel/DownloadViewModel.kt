@@ -30,8 +30,10 @@ data class NetworkProgressState(
     val downloadedBytes: Long,
     val totalBytes: Long,
     val speedBps: Long,
-    // Chunks assigned to this network — used to render its segmented bar
-    val chunks: List<ChunkUiState>
+    val chunks: List<ChunkUiState>,
+    val chunksComplete: Int,
+    val chunksTotal: Int,
+    val workerCount: Int
 ) {
     val progress: Float      get() = if (totalBytes > 0) downloadedBytes.toFloat() / totalBytes else 0f
     val progressPercent: Int get() = (progress * 100).toInt()
@@ -194,7 +196,12 @@ private fun DownloadWithChunks.toUiState(chunkSpeeds: Map<Long, Long>): Download
                     downloadedBytes = groupChunks.sumOf { it.downloadedBytes },
                     totalBytes      = groupChunks.sumOf { it.totalBytes },
                     speedBps        = groupChunks.sumOf { it.speedBps },
-                    chunks          = groupChunks
+                    chunks          = groupChunks,
+                    chunksComplete  = chunks.count { chunk ->
+                        chunk.networkStableId == stableId && chunk.status == ChunkStatus.COMPLETE
+                    },
+                    chunksTotal     = chunks.count { it.networkStableId == stableId },
+                    workerCount     = chunks.count { it.networkStableId == stableId && it.status == ChunkStatus.DOWNLOADING }
                 )
             }
             .sortedBy { it.displayName }

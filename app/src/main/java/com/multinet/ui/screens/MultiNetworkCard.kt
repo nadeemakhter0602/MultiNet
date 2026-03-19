@@ -58,19 +58,13 @@ fun MultiNetworkCard(
 
             Spacer(Modifier.height(10.dp))
 
-            if (item.chunks.isNotEmpty() && item.totalBytes > 0) {
-                ChunkLabelsRow(item.chunks, item.totalBytes)
-                Spacer(Modifier.height(2.dp))
-                ChunkedProgressBar(
-                    chunks     = item.chunks,
-                    totalBytes = item.totalBytes,
-                    height     = 12.dp,
-                    modifier   = Modifier.fillMaxWidth()
+            when {
+                item.progress != null -> LinearProgressIndicator(
+                    progress = { item.progress },
+                    modifier = Modifier.fillMaxWidth()
                 )
-            } else if (item.progress != null) {
-                LinearProgressIndicator(progress = { item.progress }, modifier = Modifier.fillMaxWidth())
-            } else if (item.status == DownloadStatus.DOWNLOADING) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                item.status == DownloadStatus.DOWNLOADING -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                else -> {}
             }
 
             Spacer(Modifier.height(8.dp))
@@ -111,6 +105,17 @@ fun MultiNetworkCard(
                             color = MaterialTheme.colorScheme.primary)
                     }
                 }
+            }
+
+            // Total worker/chunk info
+            if (item.chunks.isNotEmpty()) {
+                val totalWorkers = item.networkProgress.sumOf { it.workerCount }
+                val totalDone    = item.workerProgress.sumOf { it.chunksComplete }
+                Text(
+                    text  = "${item.workerCount} workers · ${item.minChunkSizeBytes / 1024} KB chunk size · $totalDone/${item.chunks.size} chunks done",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                )
             }
 
             // Elapsed time
@@ -170,33 +175,40 @@ private fun ChunkLabelsRow(chunks: List<ChunkUiState>, totalBytes: Long) {
     }
 }
 
-// One summary row per network: WIFI  42%  •  12.4 / 25.6 MB  •  1.8 MB/s
+// One summary row per network — text only, no progress bar
+// WIFI  42%  •  12.4 / 25.6 MB  •  1.8 MB/s  •  4 workers  •  12/124 chunks
 @Composable
 private fun NetworkSummaryRow(net: NetworkProgressState, status: DownloadStatus) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text     = net.displayName.toShortStableId(),
-            style    = MaterialTheme.typography.labelSmall,
-            color    = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.width(56.dp),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            text  = buildSizeText(net.downloadedBytes, net.totalBytes, net.progressPercent),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-            modifier = Modifier.weight(1f).padding(horizontal = 4.dp)
-        )
-        if (status == DownloadStatus.DOWNLOADING && net.speedBps > 0) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
             Text(
-                text  = net.speedBps.toDisplaySpeed(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary
+                text     = net.displayName.toShortStableId(),
+                style    = MaterialTheme.typography.labelSmall,
+                color    = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.width(56.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            // Speed
+            if (status == DownloadStatus.DOWNLOADING && net.speedBps > 0) {
+                Text(
+                    text  = net.speedBps.toDisplaySpeed(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f).padding(horizontal = 4.dp)
+                )
+            } else {
+                Spacer(Modifier.weight(1f))
+            }
+            // Workers + chunks
+            Text(
+                text  = "${net.workerCount} workers · ${net.chunksComplete}/${net.chunksTotal} chunks",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
         }
     }
