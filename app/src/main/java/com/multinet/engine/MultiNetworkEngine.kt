@@ -136,7 +136,7 @@ class MultiNetworkEngine(private val chunkDao: ChunkDao) {
         chunkDao.updateProgress(chunk.id, chunk.downloadedBytes, ChunkStatus.DOWNLOADING)
 
         client.executeAsync(request).use { response ->
-            if (response.code != 206 && !response.isSuccessful)
+            if (response.code != 206)
                 throw Exception("Chunk ${chunk.index} HTTP ${response.code}")
             val body = response.body ?: throw Exception("Chunk ${chunk.index} empty body")
 
