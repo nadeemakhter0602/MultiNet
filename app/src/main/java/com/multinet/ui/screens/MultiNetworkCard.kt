@@ -109,10 +109,9 @@ fun MultiNetworkCard(
 
             // Total worker/chunk info
             if (item.chunks.isNotEmpty()) {
-                val totalDone     = item.workerProgress.sumOf { it.chunksComplete }
                 val actualChunkKb = item.totalBytes / item.chunks.size / 1024
                 Text(
-                    text  = "${item.workerCount} workers · $actualChunkKb KB chunk size · $totalDone/${item.chunks.size} chunks done",
+                    text  = "${item.workerCount} workers · $actualChunkKb KB chunk size · ${item.chunksComplete}/${item.chunks.size} chunks done",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                 )

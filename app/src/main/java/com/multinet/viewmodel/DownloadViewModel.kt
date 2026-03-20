@@ -64,7 +64,8 @@ data class DownloadUiState(
     val isMultiNetwork: Boolean,
     val activeMs: Long,
     val workerCount: Int,
-    val minChunkSizeBytes: Long
+    val minChunkSizeBytes: Long,
+    val chunksComplete: Int
 ) {
     val progressPercent: Int get() = ((progress ?: 0f) * 100).toInt()
 
@@ -217,7 +218,8 @@ private fun DownloadWithChunks.toUiState(chunkSpeeds: Map<Long, Long>): Download
         isMultiNetwork    = isMultiNetwork,
         activeMs          = download.activeMs,
         workerCount       = download.workerCount,
-        minChunkSizeBytes = download.minChunkSizeBytes
+        minChunkSizeBytes = download.minChunkSizeBytes,
+        chunksComplete    = chunks.count { it.status == ChunkStatus.COMPLETE }
     )
 }
 

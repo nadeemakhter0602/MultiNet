@@ -232,8 +232,7 @@ class DownloadService : Service() {
                     workerCount       = download.workerCount
                 ) { downloaded, totalBytes, speedBps ->
                     val activeMs = existingMs + (System.currentTimeMillis() - sessionStart)
-                    dao.updateProgress(id, downloaded, speedBps)
-                    dao.updateActiveMs(id, activeMs)
+                    dao.updateProgress(id, downloaded, speedBps, activeMs)
                     updateNotification(download.fileName, downloaded, totalBytes, speedBps)
                 }
 

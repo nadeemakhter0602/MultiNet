@@ -70,6 +70,11 @@ class MultiNetworkEngine(private val chunkDao: ChunkDao) {
                             var attempts    = 0
                             var currentClient = nc.client
                             var currentNc = nc
+                            // Assign network + worker before downloading so fast chunks
+                            // (< 1 second) still get their assignment even if onChunkProgress never fires
+                            chunkDao.updateNetwork(freshChunk.id, currentNc.stableId, currentNc.displayName)
+                            chunkDao.updateWorker(freshChunk.id, globalWorkerIdx)
+
                             while (attempts <= clients.size) {
                                 try {
                                     downloadChunk(
@@ -78,8 +83,6 @@ class MultiNetworkEngine(private val chunkDao: ChunkDao) {
                                         chunk  = freshChunk,
                                         client = currentClient,
                                         onChunkProgress = { chunkDownloaded ->
-                                            chunkDao.updateNetwork(freshChunk.id, currentNc.stableId, currentNc.displayName)
-                                            chunkDao.updateWorker(freshChunk.id, globalWorkerIdx)
                                             chunkDao.updateProgress(freshChunk.id, chunkDownloaded, ChunkStatus.DOWNLOADING)
                                         },
                                         onBytes = { bytesRead ->
@@ -103,10 +106,11 @@ class MultiNetworkEngine(private val chunkDao: ChunkDao) {
                                         chunkDao.updateProgress(freshChunk.id, freshChunk.downloadedBytes, ChunkStatus.PENDING)
                                         throw e
                                     }
-                                    // Try next network client
+                                    // Try next network client — update assignment before retry
                                     val fallbackIdx = (netIdx + attempts) % clients.size
                                     currentNc     = clients[fallbackIdx]
                                     currentClient = currentNc.client
+                                    chunkDao.updateNetwork(freshChunk.id, currentNc.stableId, currentNc.displayName)
                                 }
                             }
                         }

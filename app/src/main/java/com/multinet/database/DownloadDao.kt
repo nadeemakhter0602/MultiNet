@@ -30,8 +30,8 @@ interface DownloadDao {
 
     // Only updates bytes and speed — never touches status.
     // Status is only changed explicitly via updateStatus().
-    @Query("UPDATE downloads SET downloadedBytes = :bytes, speedBps = :speed WHERE id = :id")
-    suspend fun updateProgress(id: Long, bytes: Long, speed: Long = 0L)
+    @Query("UPDATE downloads SET downloadedBytes = :bytes, speedBps = :speed, activeMs = :activeMs WHERE id = :id")
+    suspend fun updateProgress(id: Long, bytes: Long, speed: Long = 0L, activeMs: Long = 0L)
 
     @Query("UPDATE downloads SET status = :status, errorMessage = :error WHERE id = :id")
     suspend fun updateStatus(id: Long, status: DownloadStatus, error: String? = null)
@@ -39,8 +39,6 @@ interface DownloadDao {
     @Query("UPDATE downloads SET totalBytes = :total, supportsResume = :supportsResume WHERE id = :id")
     suspend fun updateMeta(id: Long, total: Long, supportsResume: Boolean)
 
-    @Query("UPDATE downloads SET activeMs = :ms WHERE id = :id")
-    suspend fun updateActiveMs(id: Long, ms: Long)
 
     @Query("DELETE FROM downloads WHERE id = :id")
     suspend fun delete(id: Long)
